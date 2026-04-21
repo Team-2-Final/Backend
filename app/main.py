@@ -6,8 +6,21 @@ from app.api.router import router
 from app.db.mongo import mongo_db
 from app.db.oracle import engine
 from app.db.oracle import get_oracle_db
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI(title="SeedFarm-TEST-123")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",  # Vite
+        "http://localhost:3000",  # React 기본
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.include_router(router, prefix="/api")
 
