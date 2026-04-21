@@ -7,9 +7,12 @@ from app.db.oracle import SessionLocal
 from app.services.ai_service import AIService
 from app.services.alert_service import AlertService
 from app.services.mongo_service import MongoService
+from app.services.dashboard_service import DashboardService
+from app.websocket.manager import ws_manager
 
 from app.models.oracle.growth_batch import GrowthBatch
 from app.models.oracle.environment_data import EnvironmentData
+
 from app.models.oracle.plant_growth import PlantGrowth
 from app.models.oracle.ai_result import AIResult
 from app.models.oracle.action_log import ActionLog
@@ -21,6 +24,7 @@ class DataService:
         self.ai_service = AIService()
         self.alert_service = AlertService()
         self.mongo_service = MongoService()
+        self.dashboard_service = DashboardService()
 
     # ai 판단 종류
     EVENT_TYPES = {"disease", "harvest", "flowering"}
@@ -154,6 +158,11 @@ class DataService:
             # 7️⃣ commit
             # =====================================
             db.commit()
+
+            await ws_manager.broadcast(batch_id, {
+                "type": "dashboard_update",
+                "type": self.dashboard_service.get_dashboard(batch_id)
+            })
 
             # =====================================
             # 8️⃣ response

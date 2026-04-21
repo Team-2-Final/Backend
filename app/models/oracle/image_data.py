@@ -13,4 +13,4 @@ class ImageData(Base):
     file_path = Column(String(255), nullable=False)
 
     captured_at = Column(DateTime)
-    # recorded_at = Column(DateTime)
+    recorded_at = Column(DateTime)

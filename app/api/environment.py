@@ -5,6 +5,9 @@ from app.services.environment_service import EnvironmentService
 from app.services.control_service import decide_action
 from app.schemas.environment.environment import EnvironmentCreate
 from app.services.action_log_service import ActionLogService
+from app.services.dashboard_service import DashboardService
+from app.schemas.environment.environment import EnvironmentCreate
+from app.websocket.manager import ws_manager
 import json
 
 from app.core.state import (
@@ -15,6 +18,7 @@ router = APIRouter()
 
 environment_service = EnvironmentService()
 action_log_service = ActionLogService()
+dashboard_service = DashboardService()
 
 
 def normalize_action(action: dict):
@@ -80,6 +84,11 @@ async def insert_env(batch_id: int, data: EnvironmentCreate):
         "reason": reason,
         "log_id": log_id
     }
+    
+    await ws_manager.broadcast(batch_id, {
+        "type" : "dashboard_update",
+        "type" : dashboard_service.get_dashbard(batch_id)
+    })
 
 
     return result

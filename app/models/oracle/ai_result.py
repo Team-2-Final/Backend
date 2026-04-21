@@ -22,4 +22,4 @@ class AIResult(Base):
     captured_at = Column(DateTime)
     inferred_at = Column(DateTime)
 
-    # recorded_at = Column(DateTime)
+    recorded_at = Column(DateTime)

@@ -17,4 +17,4 @@ class ActionLog(Base):
     status = Column(String(20))          # success / fail
     message = Column(String(255))
 
-    # recorded_at = Column(DateTime)
+    recorded_at = Column(DateTime)

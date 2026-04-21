@@ -17,4 +17,4 @@ class EnvironmentData(Base):
     soil_moisture = Column(Float)
     ph = Column(Float)
 
-    # recorded_at = Column(DateTime)
+    recorded_at = Column(DateTime)
