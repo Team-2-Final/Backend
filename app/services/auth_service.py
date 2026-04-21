@@ -118,3 +118,7 @@ def logout_user(db: Session, refresh_token: str):
     db.commit()
 
     return True
+
+# 이메일로 사용자명 검색
+def get_user_by_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()

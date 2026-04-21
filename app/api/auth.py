@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.deps import get_current_email
 from app.schemas.auth.auth import (
     UserSignupRequest,
     UserLoginRequest,
     RefreshTokenRequest,
     TokenResponse,
+    UserResponse
 )
-from app.services.auth_service import signup_user, login_user, refresh_access_token, logout_user
+from app.services.auth_service import signup_user, login_user, refresh_access_token, logout_user, get_user_by_email
 from app.db.oracle import SessionLocal
 
 router = APIRouter()
@@ -77,3 +79,13 @@ def logout(request: RefreshTokenRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="이미 로그아웃 되었거나 토큰이 없습니다.")
 
     return {"message": "로그아웃 성공"}
+
+
+@router.get("/me", response_model=UserResponse)
+def me(
+    email: str = Depends(get_current_email),
+    db: Session = Depends(get_db)
+):
+    user = get_user_by_email(db, email)  # ✔ service 사용
+
+    return user
