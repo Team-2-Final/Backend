@@ -7,7 +7,7 @@ from app.schemas.auth.auth import (
     RefreshTokenRequest,
     TokenResponse,
 )
-from app.services.auth_service import signup_user, login_user, refresh_access_token
+from app.services.auth_service import signup_user, login_user, refresh_access_token, logout_user
 from app.db.oracle import SessionLocal
 
 router = APIRouter()
@@ -68,3 +68,12 @@ def refresh(request: RefreshTokenRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="유효하지 않은 refresh token 입니다.")
 
     return token
+
+@router.post("/logout")
+def logout(request: RefreshTokenRequest, db: Session = Depends(get_db)):
+    success = logout_user(db, request.refresh_token)
+
+    if not success:
+        raise HTTPException(status_code=400, detail="이미 로그아웃 되었거나 토큰이 없습니다.")
+
+    return {"message": "로그아웃 성공"}

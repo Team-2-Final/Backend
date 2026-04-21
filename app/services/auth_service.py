@@ -101,3 +101,20 @@ def refresh_access_token(db: Session, refresh_token: str):
         "refresh_token": refresh_token,
         "token_type": "bearer"
     }
+
+
+# 로그아웃
+def logout_user(db: Session, refresh_token: str):
+    token = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.refresh_token == refresh_token)
+        .first()
+    )
+
+    if not token:
+        return False
+
+    token.revoked = 1
+    db.commit()
+
+    return True
