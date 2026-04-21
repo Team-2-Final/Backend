@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, Float, DateTime
+from sqlalchemy import Column, Integer, ForeignKey, Float, DateTime, text
 from app.db.oracle import Base
 
 
@@ -17,4 +17,8 @@ class EnvironmentData(Base):
     soil_moisture = Column(Float)
     ph = Column(Float)
 
-    recorded_at = Column(DateTime)
+    recorded_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=text("SYSTIMESTAMP")
+    )

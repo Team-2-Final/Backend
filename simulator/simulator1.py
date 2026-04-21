@@ -184,4 +184,4 @@ def run_simulator(api_url, batch_id):
 
 
 if __name__ == "__main__":
-    run_simulator("http://127.0.0.1:8000/api", batch_id=2)
+    run_simulator("http://127.0.0.1:8000/api", batch_id=3)
