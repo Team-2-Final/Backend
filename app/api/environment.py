@@ -87,7 +87,7 @@ async def insert_env(batch_id: int, data: EnvironmentCreate):
     
     await ws_manager.broadcast(batch_id, {
         "type" : "dashboard_update",
-        "type" : dashboard_service.get_dashbard(batch_id)
+        "data" : dashboard_service.get_dashboard(batch_id)
     })
 
 

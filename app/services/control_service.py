@@ -144,6 +144,8 @@ def decide_action(env: dict, batch_id: int):
         elif device == "fertigation":
             action["fertigation"] = bool(target)
 
+        
+
         reason[device] = {
             "mode": "manual",
             "value": env.get(device if device in env else None),
