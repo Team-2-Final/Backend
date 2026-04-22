@@ -47,13 +47,13 @@ def environment_sensor_stream_tomato_underground(
         # =========================
         # 🔥 자연 변화 (action 없을 때만)
         # =========================
-        # if not action:
-        #     temperature += (target_temp - temperature) * 0.02 + np.random.normal(0, 0.03)
-        #     humidity += (target_hum - humidity) * 0.02 + np.random.normal(0, 0.15)
-        #     co2 += (target_co2 - co2) * 0.02 + np.random.normal(0, 3)
+        if not action:
+            temperature += (target_temp - temperature) * 0.02 + np.random.normal(0, 0.03)
+            humidity += (target_hum - humidity) * 0.02 + np.random.normal(0, 0.15)
+            co2 += (target_co2 - co2) * 0.02 + np.random.normal(0, 3)
 
-        #     soil_moisture -= np.random.uniform(0.1, 0.3)
-        #     soil_ec -= np.random.uniform(0.01, 0.03)
+            soil_moisture -= np.random.uniform(0.1, 0.3)
+            soil_ec -= np.random.uniform(0.01, 0.03)
 
         # =========================
         # 🔥 제어 반영 (핵심)
@@ -180,8 +180,8 @@ def run_simulator(api_url, batch_id):
             except Exception as e:
                 print("ACK 실패:", e)
 
-        time.sleep(3)
+        time.sleep(2)
 
 
 if __name__ == "__main__":
-    run_simulator("http://127.0.0.1:8000/api", batch_id=2)
+    run_simulator("http://127.0.0.1:8000/api", batch_id=1)

@@ -10,7 +10,9 @@ class ActionLog(Base):
 
     action_type = Column(String(50))     # water / nutrient
     action_mode = Column(String(20))     # auto / manual
-
+    is_on = Column(String(10))
+    metric = Column(String(30))
+    
     trigger_value = Column(Float)
     threshold = Column(Float)
 

@@ -21,6 +21,16 @@ AUTO_RULES = [
     {"key": "fertigation", "metric": "soil_ec", "op": "<", "th": 2.2},
 ]
 
+DEVICE_METRIC_MAP = {
+    "fan": "temperature",
+    "cooler": "temperature",
+    "heater": "temperature",
+    "humidifier": "humidity",
+    "co2_gen": "co2",
+    "irrigation": "soil_moisture",
+    "fertigation": "soil_ec",
+}
+
 
 # =========================
 # RULE 평가
@@ -63,6 +73,8 @@ def decide_action(env: dict, batch_id: int):
 
     global last_state
 
+    # batch별 state 가져오기
+    state = last_state.get(batch_id, {})
     # =========================
     # 1. 기본 action (AUTO)
     # =========================
@@ -80,12 +92,13 @@ def decide_action(env: dict, batch_id: int):
     reason = {}
 
     for rule in AUTO_RULES:
-        if evaluate(rule, env, last_state):
+        if evaluate(rule, env, state):
             key = rule["key"]
             action[key] = True
 
             reason[key] = {
                 "mode": "auto",
+                "metric": rule.get("metric"),
                 "value": env.get(rule.get("metric")),
                 "target": rule.get("on") or rule.get("th")
             }
@@ -101,7 +114,8 @@ def decide_action(env: dict, batch_id: int):
         reason["light"] = {
             "mode": "auto",
             "metric": "time",
-            "value": hour
+            "value": hour,
+            "target": None
         }
 
     # =========================
@@ -138,17 +152,18 @@ def decide_action(env: dict, batch_id: int):
 
         # -------- 관수 --------
         elif device == "irrigation":
-            action["irrigation"] = bool(target)
+            action["irrigation"] = env["soil_moisture"] < target
 
         # -------- 양액 --------
         elif device == "fertigation":
-            action["fertigation"] = bool(target)
+            action["fertigation"] = env["soil_ec"] < target
 
-        
+        metric = DEVICE_METRIC_MAP.get(device)
 
         reason[device] = {
             "mode": "manual",
-            "value": env.get(device if device in env else None),
+            "metric": metric,
+            "value": env.get(metric) if metric else None,
             "target": target
         }
 
@@ -171,9 +186,22 @@ def decide_action(env: dict, batch_id: int):
         action["humidifier"] = False
         reason["humidifier_blocked"] = {"reason": "fan_running"}
 
+
+    # 🔥 DEBUG OUTPUT (여기 추가)
+    # =========================
+    print("\n================ CONTROL_SERVICE OUTPUT ================")
+    print("[ENV]")
+    print(env)
+    print("\n[ACTION]")
+    print(action)
+    print("\n[REASON]")
+    print(reason)
+    print("========================================================\n")
+
+
     # =========================
     # 5. STATE 업데이트
     # =========================
-    last_state = action.copy()
+    last_state[batch_id] = action.copy()
 
     return action, reason

@@ -242,6 +242,8 @@ CREATE TABLE action_log (
     batch_id NUMBER,
     action_type VARCHAR2(50),
     action_mode VARCHAR2(20),
+    is_on VARCHAR2(10),
+    metric VARCHAR2(30),
     trigger_value NUMBER,
     threshold NUMBER,
     status VARCHAR2(20),

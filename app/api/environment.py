@@ -45,6 +45,8 @@ async def insert_env(batch_id: int, data: EnvironmentCreate):
         env_dict,
         batch_id=batch_id
     )
+    print("action", action)
+    print("reason", reason)
 
     # 🔥 이전 상태 가져오기
     prev_data = latest_action_map.get(batch_id, {})
@@ -52,37 +54,50 @@ async def insert_env(batch_id: int, data: EnvironmentCreate):
 
     log_id = None
 
+    print("\n================ DIFF CHECK ================")
+    print("[BATCH]", batch_id)
+    print("[PREV ACTION]", prev_action)
+    print("[NEW ACTION]", action)
+    print("===========================================\n")
+
     # 🔥 action 변경 시에만 로그 생성
     if normalize_action(prev_action) != normalize_action(action):
 
-        # mode 판단 (auto / manual / mixed)
         modes = {info.get("mode", "auto") for info in reason.values()}
         action_mode = modes.pop() if len(modes) == 1 else "mixed"
 
-        log_id = action_log_service.save(
-            batch_id=batch_id,
-            action_type="composite",
-            action_mode=action_mode,
-            trigger_value=None,
-            threshold=None,
-            status="issued",
-            message=json.dumps({
-                "action": action,
-                "reason": reason,
-                "timestamp": env_dict["timestamp"]
-            })
-        )
+        log_ids = []
+
+        for device, info in reason.items():
+            log_id = action_log_service.save(
+                batch_id=batch_id,
+                action_type=device,
+                action_mode=info.get("mode", action_mode),
+
+                # 🔥 핵심 추가
+                is_on="ON" if action.get(device) else "OFF",
+
+                metric=info.get("metric"),
+
+                trigger_value=info.get("value"),
+                threshold=info.get("target"),
+
+                status="issued",
+                message=None
+            )
+
+            log_ids.append(log_id)
 
     else:
         # 🔥 이전 log_id 유지 (핵심)
-        log_id = prev_data.get("log_id")
+        log_ids = prev_data.get("log_ids")
 
 
     # 🔥 상태 저장
     latest_action_map[batch_id] = {
         "action": action,
         "reason": reason,
-        "log_id": log_id
+        "log_ids": log_ids
     }
     
     await ws_manager.broadcast(batch_id, {

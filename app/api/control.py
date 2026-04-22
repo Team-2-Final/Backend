@@ -52,35 +52,6 @@ def set_device_target(batch_id: int, req: DeviceTargetRequest):
 
     return {"device": req.device, "target": req.value}
 
-# =========================
-# 📋 현재 목표 수치 설정 조회
-# =========================
-@router.get("/device-state/{batch_id}")
-def get_device_state(batch_id: int):
-    state = device_state_map.get(batch_id, {})
-
-    default_devices = {
-        "heater": {"mode": "auto", "target": 22.0},
-        "humidifier": {"mode": "auto", "target": 65},
-        "light": {"mode": "auto", "target": 80},
-        "irrigation": {"mode": "auto", "target": 2.5},
-        "fertigation": {"mode": "auto", "target": 1.2},
-        "co2_gen": {"mode": "manual", "target": 800},
-    }
-
-    result = {}
-    for device, default_value in default_devices.items():
-        current = state.get(device, {})
-        result[device] = {
-            "mode": current.get("mode", default_value["mode"]),
-            "target": current.get("target", default_value["target"]),
-        }
-
-    return {
-        "batch_id": batch_id,
-        "devices": result
-    }
-
 
 # =========================
 # ⚙️ 현재 action 조회 (시뮬용)
@@ -93,21 +64,23 @@ def get_action(batch_id: int):
     if not data:
         return {"action": {}, "log_id": None}
 
+    log_ids = data.get("log_ids", [])
+
+    # 🔥 하나씩 pop (FIFO)
+    next_log_id = log_ids.pop(0) if log_ids else None
+
+    # 상태 갱신
+    data["log_ids"] = log_ids
+    latest_action_map[batch_id] = data
+
     return {
         "action": data.get("action", {}),
-        "log_id": data.get("log_id")
+        "log_id": next_log_id
     }
 
 # ack : 명령이 시뮬에 제대로 받아들여져서 작동했나 확인하고 update
 @router.post("/ack/{batch_id}")
 def ack_action(batch_id: int, data: dict):
-    """
-    simulator가 실행 결과 전달
-    data:
-      - log_id
-      - status (applied / failed)
-      - message (optional)
-    """
 
     log_id = data.get("log_id")
     status = data.get("status")
@@ -124,33 +97,6 @@ def ack_action(batch_id: int, data: dict):
 
     return {"status": "ok"}
 
-# =========================
-# 📝 운영 기록 조회
-# =========================
-@router.get("/logs/{batch_id}")
-def get_control_logs(batch_id: int):
-    db = SessionLocal()
-    try:
-        logs = (
-            db.query(ActionLog)
-            .filter(ActionLog.batch_id == batch_id)
-            .order_by(ActionLog.id.desc())
-            .limit(20)
-            .all()
-        )
-
-        return [
-            {
-                "id": log.id,
-                "device": log.action_type,
-                "mode": log.action_mode,
-                "status": log.status,
-                "message": log.message,
-            }
-            for log in logs
-        ]
-    finally:
-        db.close()
 
 
 # =========================
