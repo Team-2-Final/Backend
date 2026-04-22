@@ -35,6 +35,10 @@ def signup_user(db: Session, username: str, email: str, password: str):
 def login_user(db: Session, email: str, password: str):
     user = db.query(User).filter(User.email == email).first()
 
+    print("EMAIL:", email)
+    print("PASSWORD:", password)
+    print("HASH:", user.hashed_password)
+    print("VERIFY:", verify_password(password, user.hashed_password))
     if not user:
         return None
 
