@@ -69,6 +69,8 @@ async def insert_env(batch_id: int, data: EnvironmentCreate):
         log_ids = []
 
         for device, info in reason.items():
+            if device not in action:
+                continue
             log_id = action_log_service.save(
                 batch_id=batch_id,
                 action_type=device,

@@ -7,12 +7,18 @@ from app.core.state import device_state_map
 # =========================
 last_state = {}
 
+axis_lock = {
+    "co2": {},          # batch_id별로 관리해야 함
+    "temperature": {}
+}
+
+
 
 # =========================
 # AUTO RULES (히스테리시스 적용)
 # =========================
 AUTO_RULES = [
-    {"key": "fan", "metric": "temperature", "on": 26, "off": 24},
+    {"key": "fan", "metric": "co2", "on": 900, "off": 800},
     {"key": "cooler", "metric": "temperature", "on": 26, "off": 24},
     {"key": "heater", "metric": "temperature", "on": 20, "off": 22},
     {"key": "humidifier", "metric": "humidity", "op": "<", "th": 55},
@@ -22,7 +28,7 @@ AUTO_RULES = [
 ]
 
 DEVICE_METRIC_MAP = {
-    "fan": "temperature",
+    "fan": "co2",
     "cooler": "temperature",
     "heater": "temperature",
     "humidifier": "humidity",
@@ -91,7 +97,51 @@ def decide_action(env: dict, batch_id: int):
 
     reason = {}
 
+    # =========================
+    # 🔥 0. LOCK 먼저 확정
+    # =========================
+    device_state = device_state_map.get(batch_id, {})
+
+    for device, state in device_state.items():
+        mode = state.get("mode")
+
+        # auto → lock 해제
+        if mode == "auto":
+            if device in ["fan", "co2_gen"]:
+                if axis_lock["co2"].get(batch_id) == device:
+                    axis_lock["co2"][batch_id] = None
+
+            if device in ["heater", "cooler"]:
+                if axis_lock["temperature"].get(batch_id) == device:
+                    axis_lock["temperature"][batch_id] = None
+
+        # manual → lock 설정
+        if mode == "manual":
+            if device in ["fan", "co2_gen"]:
+                axis_lock["co2"][batch_id] = device
+
+            if device in ["heater", "cooler"]:
+                axis_lock["temperature"][batch_id] = device
+
+    # 🔥 확정된 lock
+    co2_lock = axis_lock["co2"].get(batch_id)
+    temp_lock = axis_lock["temperature"].get(batch_id)
+
     for rule in AUTO_RULES:
+
+        key = rule["key"]
+
+        # 🔥 CO2 LOCK
+        if key in ["fan", "co2_gen"] and co2_lock:
+            if key != co2_lock:
+                continue
+
+        # 🔥 TEMPERATURE LOCK
+        if key in ["heater", "cooler"] and temp_lock:
+            if key != temp_lock:
+                continue
+
+
         if evaluate(rule, env, state):
             key = rule["key"]
             action[key] = True
@@ -128,9 +178,11 @@ def decide_action(env: dict, batch_id: int):
         mode = state.get("mode")
         target = state.get("target")
 
+
         # 🔥 manual만 override
         if mode != "manual" or target is None:
             continue
+
 
         # -------- 온도 계열 --------
         if device == "heater":
@@ -140,7 +192,7 @@ def decide_action(env: dict, batch_id: int):
             action["cooler"] = env["temperature"] > target
 
         elif device == "fan":
-            action["fan"] = env["temperature"] > target
+            action["fan"] = env["co2"] > target
 
         # -------- 습도 --------
         elif device == "humidifier":
@@ -185,7 +237,21 @@ def decide_action(env: dict, batch_id: int):
     if action["fan"]:
         action["humidifier"] = False
         reason["humidifier_blocked"] = {"reason": "fan_running"}
+        
+    # 🔥 CO2 LOCK 강제
+    if axis_lock["co2"].get(batch_id) == "fan":
+        action["co2_gen"] = False
 
+    elif axis_lock["co2"].get(batch_id) == "co2_gen":
+        action["fan"] = False
+
+
+    # 🔥 TEMP LOCK 강제
+    if axis_lock["temperature"].get(batch_id) == "heater":
+        action["cooler"] = False
+
+    elif axis_lock["temperature"].get(batch_id) == "cooler":
+        action["heater"] = False    
 
     # 🔥 DEBUG OUTPUT (여기 추가)
     # =========================
@@ -197,6 +263,21 @@ def decide_action(env: dict, batch_id: int):
     print("\n[REASON]")
     print(reason)
     print("========================================================\n")
+
+    # 🔥 CO2 unlock
+    if axis_lock["co2"].get(batch_id) == "fan" and not action["fan"]:
+        axis_lock["co2"][batch_id] = None
+
+    if axis_lock["co2"].get(batch_id) == "co2_gen" and not action["co2_gen"]:
+        axis_lock["co2"][batch_id] = None
+
+
+    # 🔥 TEMP unlock
+    if axis_lock["temperature"].get(batch_id) == "heater" and not action["heater"]:
+        axis_lock["temperature"][batch_id] = None
+
+    if axis_lock["temperature"].get(batch_id) == "cooler" and not action["cooler"]:
+        axis_lock["temperature"][batch_id] = None
 
 
     # =========================
