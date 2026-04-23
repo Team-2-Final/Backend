@@ -5,6 +5,7 @@ from app.schemas.control.control import DeviceModeRequest, DeviceTargetRequest
 from app.services.action_log_service import ActionLogService
 from app.db.oracle import SessionLocal
 from app.models.oracle.action_log import ActionLog
+from app.core.state import device_emergency_map
 
 # 🔹 상태 저장 (메모리)
 from app.core.state import (
@@ -102,36 +103,17 @@ def ack_action(batch_id: int, data: dict):
 # =========================
 # 🚨 긴급 정지
 # =========================
-@router.post("/device/stop/{batch_id}")
-def stop_device(batch_id: int, data: dict):
-    device = data.get("device")
+@router.post("/emergency/{batch_id}/{device}")
+def set_emergency(batch_id: int, device: str, is_stop: bool):
 
-    if not device:
-        return {"status": "fail", "message": "device missing"}
+    # batch 없으면 초기화
+    if batch_id not in device_emergency_map:
+        device_emergency_map[batch_id] = {}
 
-    if batch_id not in device_state_map:
-        device_state_map[batch_id] = {}
-
-    if device not in device_state_map[batch_id]:
-        device_state_map[batch_id][device] = {}
-
-    device_state_map[batch_id][device]["mode"] = "manual"
-    device_state_map[batch_id][device]["target"] = 0
-
-    log_id = action_log_service.save(
-        batch_id=batch_id,
-        action_type=device,
-        action_mode="manual",
-        trigger_value=None,
-        threshold=None,
-        status="issued",
-        message=f"{device} emergency stop"
-    )
+    device_emergency_map[batch_id][device] = is_stop
 
     return {
-        "status": "ok",
+        "batch_id": batch_id,
         "device": device,
-        "mode": "manual",
-        "target": 0,
-        "log_id": log_id
+        "emergency": is_stop
     }

@@ -93,7 +93,10 @@ def environment_sensor_stream_tomato_underground(
                 co2 += 80
 
         # 광량 (시간 기반)
-        radiation = 320 if lights_on else 0
+        if action is not None and "light" in action:
+            radiation = 320 if action["light"] else 0
+        else:
+            radiation = 320 if lights_on else 0
 
         # 제한
         temperature = np.clip(temperature, TEMP_MIN, TEMP_MAX)

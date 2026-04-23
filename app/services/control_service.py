@@ -1,6 +1,7 @@
 # app/services/control_service.py
 
 from app.core.state import device_state_map
+from app.core.state import device_emergency_map
 
 # =========================
 # STATE (히스테리시스용)
@@ -237,7 +238,8 @@ def decide_action(env: dict, batch_id: int):
     if action["fan"]:
         action["humidifier"] = False
         reason["humidifier_blocked"] = {"reason": "fan_running"}
-        
+
+    
     # 🔥 CO2 LOCK 강제
     if axis_lock["co2"].get(batch_id) == "fan":
         action["co2_gen"] = False
@@ -253,16 +255,7 @@ def decide_action(env: dict, batch_id: int):
     elif axis_lock["temperature"].get(batch_id) == "cooler":
         action["heater"] = False    
 
-    # 🔥 DEBUG OUTPUT (여기 추가)
-    # =========================
-    print("\n================ CONTROL_SERVICE OUTPUT ================")
-    print("[ENV]")
-    print(env)
-    print("\n[ACTION]")
-    print(action)
-    print("\n[REASON]")
-    print(reason)
-    print("========================================================\n")
+    
 
     # 🔥 CO2 unlock
     if axis_lock["co2"].get(batch_id) == "fan" and not action["fan"]:
@@ -279,7 +272,32 @@ def decide_action(env: dict, batch_id: int):
     if axis_lock["temperature"].get(batch_id) == "cooler" and not action["cooler"]:
         axis_lock["temperature"][batch_id] = None
 
+    # =========================
+    # 🔥 4.5 DEVICE EMERGENCY STOP
+    # =========================
+    emergency_devices = device_emergency_map.get(batch_id, {})
+    
+    for device, is_stop in emergency_devices.items():
+        if is_stop:
+            action[device] = False
+    
+            reason[device] = {
+                "mode": "emergency",
+                "metric": None,
+                "value": None,
+                "target": None
+            }    
 
+    # 🔥 DEBUG OUTPUT (여기 추가)
+    # =========================
+    print("\n================ CONTROL_SERVICE OUTPUT ================")
+    print("[ENV]")
+    print(env)
+    print("\n[ACTION]")
+    print(action)
+    print("\n[REASON]")
+    print(reason)
+    print("========================================================\n")
     # =========================
     # 5. STATE 업데이트
     # =========================

@@ -63,7 +63,11 @@ async def insert_env(batch_id: int, data: EnvironmentCreate):
     # 🔥 action 변경 시에만 로그 생성
     if normalize_action(prev_action) != normalize_action(action):
 
-        modes = {info.get("mode", "auto") for info in reason.values()}
+        modes = {
+            info.get("mode", "auto")
+            for device, info in reason.items()
+            if device in action
+        }
         action_mode = modes.pop() if len(modes) == 1 else "mixed"
 
         log_ids = []
@@ -71,6 +75,7 @@ async def insert_env(batch_id: int, data: EnvironmentCreate):
         for device, info in reason.items():
             if device not in action:
                 continue
+
             log_id = action_log_service.save(
                 batch_id=batch_id,
                 action_type=device,
