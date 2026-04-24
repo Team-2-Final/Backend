@@ -54,7 +54,7 @@ class DataService:
 
             for key, file in files.items():
                 if file:
-                    image_paths[key] = self.image_service.save_image(file, batch_id)
+                    image_paths[key] = self.image_service.save_image(file, batch_id, key)
 
 
             for key, path in image_paths.items():
@@ -213,7 +213,7 @@ class DataService:
         now = datetime.now()
 
         # 1. 이미지 저장
-        image_path = self.image_service.save_image(file, batch_id)
+        image_path = self.image_service.save_image(file, batch_id, "leaf")
 
         # 2. AI 분석
         ai_output = self.ai_service.analyze_leaf(image_path)
@@ -293,7 +293,7 @@ class DataService:
     async def infer_fruit(self, batch_id: int, file):
         now = datetime.now()
 
-        image_path = self.image_service.save_image(file, batch_id)
+        image_path = self.image_service.save_image(file, batch_id, "fruit")
 
         ai_output = self.ai_service.analyze_fruit(image_path)
 

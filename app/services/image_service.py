@@ -1,18 +1,19 @@
-import os
+from pathlib import Path
 import uuid
-from datetime import datetime
+import os
 
 
 class ImageService:
 
-    def save_image(self, file, batch_id: int) -> str:
-        upload_dir = "uploads"
-        os.makedirs(upload_dir, exist_ok=True)
+    def save_image(self, file, batch_id, category):
+        base_dir = Path("images") / f"batch_{batch_id}" / category
+        base_dir.mkdir(parents=True, exist_ok=True)
 
-        filename = f"{batch_id}_{uuid.uuid4().hex}.jpg"
-        path = os.path.join(upload_dir, filename)
+        ext = os.path.splitext(file.filename)[1]
+        filename = f"{uuid.uuid4()}{ext}"
+        file_path = base_dir / filename
 
-        with open(path, "wb") as buffer:
-            buffer.write(file.file.read())
+        with open(file_path, "wb") as f:
+            f.write(file.file.read())
 
-        return path
+        return str(file_path)
