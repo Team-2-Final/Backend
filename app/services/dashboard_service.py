@@ -3,6 +3,7 @@ from app.models.oracle.environment_data import EnvironmentData
 from app.models.oracle.plant_growth import PlantGrowth
 from app.models.oracle.ai_result import AIResult
 from app.models.oracle.action_log import ActionLog
+from datetime import datetime, timedelta
 
 
 class DashboardService:
@@ -340,4 +341,41 @@ class DashboardService:
             "crop_status": self.get_crop_status(batch_id),
             "ai_reports": self.get_ai_reports(batch_id),
             "cctv": self.get_cctv_status(batch_id),
+            "growthDelta": self.get_growth_delta(batch_id),
         }
+    def get_growth_delta(self, batch_id: int):
+        db = SessionLocal()
+        try:
+            # 가장 최근(오늘) 초장 데이터 조회
+            latest = self._get_latest_growth_row(db, batch_id)
+            if not latest or not latest.plant_height:
+                return {"day": 0.0, "week": 0.0, "month": 0.0}
+
+            current_height = latest.plant_height
+            now = datetime.now()
+
+            # 과거 데이터 조회 헬퍼 함수
+            def get_past_height(days_ago):
+                target_date = now - timedelta(days=days_ago)
+                past_record = (
+                    db.query(PlantGrowth)
+                    .filter(PlantGrowth.batch_id == batch_id, PlantGrowth.recorded_at <= target_date)
+                    .order_by(PlantGrowth.recorded_at.desc())
+                    .first()
+                )
+                # 과거 기록이 없으면 그냥 현재 키와 같다고 처리(성장량 0)
+                return past_record.plant_height if past_record and past_record.plant_height else current_height
+
+            # 어제(1일), 1주(7일), 1달(30일) 전 키 가져오기
+            yesterday_height = get_past_height(1)
+            week_height = get_past_height(7)
+            month_height = get_past_height(30)
+
+            # 차이(Delta) 계산해서 소수점 1자리로 리턴
+            return {
+                "day": round(current_height - yesterday_height, 1),
+                "week": round(current_height - week_height, 1),
+                "month": round(current_height - month_height, 1)
+            }
+        finally:
+            db.close()
