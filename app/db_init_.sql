@@ -336,15 +336,4 @@ VALUES (4, 'tomato', 'fourth batch');
 
 PROMPT === DB INIT DONE ===
 
-INSERT INTO environment_data (batch_id, temperature, humidity, co2)
-VALUES (4, 24, 60, 800);
-
-INSERT INTO environment_data (batch_id, temperature, humidity, co2)
-VALUES (4, 25, 58, 820);
-
-INSERT INTO environment_data (batch_id, temperature, humidity, co2)
-VALUES (4, 23, 65, 780);
-
-INSERT INTO plant_growth (batch_id, plant_height, leaf_count)
-VALUES (4, 30, 5);
 commit;
