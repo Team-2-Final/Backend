@@ -34,6 +34,9 @@ def set_device_mode(batch_id: int, req: DeviceModeRequest):
     if req.mode == "auto":
         device_state_map[batch_id][req.device]["target"] = None
 
+        if batch_id in device_emergency_map:
+            device_emergency_map[batch_id][req.device] = False
+
     return {"device": req.device, "mode": req.mode}
 
 
