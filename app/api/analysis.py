@@ -1,6 +1,8 @@
 from fastapi import APIRouter, UploadFile, File, Form, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from typing import Optional
+
 
 from app.services.data_service import DataService
 from app.services.dashboard_service import DashboardService
@@ -89,3 +91,36 @@ def get_stats(
 
     result = db.execute(text(query), {"batch_id": batch_id}).mappings().all()
     return list(result)
+
+
+@router.post("/upload-images")
+async def upload_images(
+    plant_image: UploadFile = File(...),
+    leaf_image: UploadFile = File(...),
+    fruit_image: UploadFile | None = File(None),
+):
+    batch_id = 1
+    await data_service.process3(
+        batch_id= batch_id,
+        plant_image=plant_image,
+        leaf_image=leaf_image,
+        fruit_image=fruit_image
+    )
+    print("3장 이미지 여기까지 옴")
+
+    return {"status": "ok"}
+
+
+@router.post("/infer/leaf")
+async def infer_leaf(file: UploadFile = File(...)):
+    batch_id= 1
+    await data_service.infer_leaf(batch_id, file)
+    print("leaf 라우터까지 옴")
+    return {"status": "ok"}
+
+@router.post("/infer/fruit")
+async def infer_fruit(file: UploadFile = File(...)):
+    batch_id= 1
+    await data_service.infer_fruit(batch_id, file)
+    print("fruit 라우터까지 접근")
+    return {"status": "ok"}

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import uuid
 import os
+from dateutil import parser
 
 from app.db.oracle import SessionLocal
 
@@ -8,6 +9,7 @@ from app.services.ai_service import AIService
 from app.services.alert_service import AlertService
 from app.services.mongo_service import MongoService
 from app.services.dashboard_service import DashboardService
+from app.services.image_service import ImageService
 from app.websocket.manager import ws_manager
 
 from app.models.oracle.growth_batch import GrowthBatch
@@ -25,13 +27,15 @@ class DataService:
         self.alert_service = AlertService()
         self.mongo_service = MongoService()
         self.dashboard_service = DashboardService()
+        self.image_service = ImageService()
 
     # ai 판단 종류
     EVENT_TYPES = {"disease", "harvest", "flowering"}
-    async def process(self, batch_id: int, image_file=None):
 
-        db = SessionLocal()
-        
+    # 3개 이미지 받는 용도
+    async def process3(self, batch_id: int, plant_image, leaf_image, fruit_image=None):
+        print("process까지 옴")
+        db = SessionLocal()     
 
 
         try:
@@ -40,22 +44,36 @@ class DataService:
             # =====================================
             # 1️⃣ 이미지 저장 (파일)
             # =====================================
-            image_path = None
+            files = {
+                "plant": plant_image,
+                "leaf": leaf_image,
+                "fruit": fruit_image
+            }
 
-            if image_file:
-                image_path = self._save_image(image_file, batch_id)
+            image_paths = {}
 
+            for key, file in files.items():
+                if file:
+                    image_paths[key] = self.image_service.save_image(file, batch_id)
+
+
+            for key, path in image_paths.items():
                 db.add(ImageData(
                     batch_id=batch_id,
                     inference_id=None,
-                    file_path=image_path,
-                    captured_at=now
+                    file_path=path,
+                    captured_at=now,
+                    recorded_at =now
                 ))
 
             # =====================================
             # 2️⃣ AI 분석 (이미지만 입력)
             # =====================================
-            ai_output = self.ai_service.analyze(image_path)
+            ai_output = self.ai_service.analyzeThree(
+                image_paths.get("plant"),
+                image_paths.get("leaf"),
+                image_paths.get("fruit")
+            )            
 
             inference_id = ai_output.get("inference_id", str(uuid.uuid4()))
             
@@ -78,8 +96,11 @@ class DataService:
                 leaf_width=pg["leaf_width"],
                 leaf_count=pg["leaf_count"],
 
-                captured_at=ai_output.get("captured_at", now),
-                inferred_at=ai_output.get("inferred_at", now)
+                captured_at = self.normalize_datetime(ai_output.get("captured_at"), now),
+                inferred_at = self.normalize_datetime(ai_output.get("inferred_at"), now),
+
+                recorded_at =now
+
             ))
 
             # =====================================
@@ -96,8 +117,9 @@ class DataService:
                     confidence=event["confidence"],
                     severity=event["severity"],
 
-                    captured_at=ai_output.get("captured_at", now),
-                    inferred_at=ai_output.get("inferred_at", now)
+                    captured_at = self.normalize_datetime(ai_output.get("captured_at"), now),
+                    inferred_at = self.normalize_datetime(ai_output.get("inferred_at"), now),
+                    recorded_at= now
                 ))
 
             # =====================================
@@ -107,7 +129,7 @@ class DataService:
                 "inference_id": inference_id,
                 "model_version": ai_output.get("model_version", "v1.0"),
 
-                "image_path": image_path,
+                "image_path": image_paths,
 
                 "raw_output": ai_output,
 
@@ -117,8 +139,10 @@ class DataService:
                     "source": "data_service"
                 },
 
-                "captured_at": ai_output.get("captured_at", now),
-                "inferred_at": ai_output.get("inferred_at", now)
+                "captured_at": self.normalize_datetime(ai_output.get("captured_at"), now),
+                "inferred_at": self.normalize_datetime(ai_output.get("inferred_at"), now),
+
+                "recorded_at": now,
             }
 
             print("🔥 before mongo")
@@ -152,6 +176,8 @@ class DataService:
                     status="triggered",
                     message=short_msg,
 
+                    recorded_at =now
+
                 ))
 
             # =====================================
@@ -170,7 +196,7 @@ class DataService:
             return {
                 "batch_id": batch_id,
                 "inference_id": inference_id,
-                "image_path": image_path,
+                "image_path": image_paths,
                 "ai_result": event,
                 "plant_growth": pg
             }
@@ -182,21 +208,181 @@ class DataService:
         finally:
             db.close()
 
-    # =====================================
-    # 이미지 저장
-    # =====================================
-    def _save_image(self, file, batch_id):
-        upload_dir = "uploads"
-        os.makedirs(upload_dir, exist_ok=True)
 
-        filename = f"{batch_id}_{uuid.uuid4().hex}.jpg"
-        path = os.path.join(upload_dir, filename)
+    async def infer_leaf(self, batch_id: int, file):
+        now = datetime.now()
 
-        with open(path, "wb") as buffer:
-            buffer.write(file.file.read())
+        # 1. 이미지 저장
+        image_path = self.image_service.save_image(file, batch_id)
 
-        return path
+        # 2. AI 분석
+        ai_output = self.ai_service.analyze_leaf(image_path)
+
+        inference_id = ai_output.get("inference_id", str(uuid.uuid4()))
+        event = ai_output["ai_result"]
+
+        is_event = event["result_type"] in self.EVENT_TYPES
+
+        # 3. Oracle 저장
+        db = SessionLocal()
+        try:
+            db.add(AIResult(
+                batch_id=batch_id,
+                inference_id=inference_id,
+                model_version=ai_output.get("model_version", "v1.0"),
+
+                result_type=event["result_type"],
+                result_value=event["result_value"],
+                confidence=event["confidence"],
+                severity=event.get("severity", 0),
+
+                captured_at=now,
+                inferred_at=now,
+                recorded_at=now
+            ))
+
+            # 4. EVENT 처리 (텔레그램 + ActionLog)
+            if (
+                is_event
+                and event["confidence"] > 0.8
+                and event.get("severity", 0) >= 3
+            ):
+                short_msg, detail_msg = self._build_messages(event)
+
+                self.alert_service.send(detail_msg)
+
+                db.add(ActionLog(
+                    batch_id=batch_id,
+                    action_type=event["result_type"],
+                    action_mode="auto",
+                    status="triggered",
+                    message=short_msg,
+                    recorded_at=now
+                ))
+
+            db.commit()
+
+        except:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+        # 5. MongoDB 저장 (🔥 핵심 누락 부분)
+        mongo_payload = {
+            "inference_id": inference_id,
+            "model_version": ai_output.get("model_version", "v1.0"),
+            "image_path": image_path,
+            "raw_output": ai_output,
+            "captured_at": now,
+            "inferred_at": now,
+            "recorded_at": now,
+        }
+
+        if is_event:
+            await self.mongo_service.save_ai_detail(mongo_payload)
+
+        return {
+            "batch_id": batch_id,
+            "inference_id": inference_id,
+            "result": event,
+            "image_path": image_path
+        }
+
+
+    async def infer_fruit(self, batch_id: int, file):
+        now = datetime.now()
+
+        image_path = self.image_service.save_image(file, batch_id)
+
+        ai_output = self.ai_service.analyze_fruit(image_path)
+
+        inference_id = ai_output.get("inference_id", str(uuid.uuid4()))
+        event = ai_output["ai_result"]
+
+        is_event = event["result_type"] in self.EVENT_TYPES
+
+        db = SessionLocal()
+        try:
+            db.add(AIResult(
+                batch_id=batch_id,
+                inference_id=inference_id,
+                model_version=ai_output.get("model_version", "v1.0"),
+
+                result_type=event["result_type"],
+                result_value=event["result_value"],
+                confidence=event["confidence"],
+                severity=event.get("severity", 0),
+
+                captured_at=now,
+                inferred_at=now,
+                recorded_at=now
+            ))
+
+            # 🔥 EVENT 처리
+            if (
+                is_event
+                and event["confidence"] > 0.8
+                and event.get("severity", 0) >= 3
+            ):
+                short_msg, detail_msg = self._build_messages(event)
+
+                self.alert_service.send(detail_msg)
+
+                db.add(ActionLog(
+                    batch_id=batch_id,
+                    action_type=event["result_type"],
+                    action_mode="auto",
+                    status="triggered",
+                    message=short_msg,
+                    recorded_at=now
+                ))
+
+            db.commit()
+
+        except:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+        # 🔥 MongoDB 저장
+        mongo_payload = {
+            "inference_id": inference_id,
+            "model_version": ai_output.get("model_version", "v1.0"),
+            "image_path": image_path,
+            "raw_output": ai_output,
+            "captured_at": now,
+            "inferred_at": now,
+            "recorded_at": now,
+        }
+
+        if is_event:
+            await self.mongo_service.save_ai_detail(mongo_payload)
+
+        return {
+            "batch_id": batch_id,
+            "inference_id": inference_id,
+            "result": event,
+            "image_path": image_path
+        }
+
+
+
+
     
+    # 문자를 날짜화
+    def normalize_datetime(self, value, fallback):
+        if value is None:
+            return fallback
+
+        if isinstance(value, str):
+            dt = parser.isoparse(value)
+            return dt.replace(tzinfo=None)
+
+        return value
+
+
     # ai 검사 결과에 따른 메시지 생성
     def _build_messages(self, event):
         if event["result_type"] == "disease":
