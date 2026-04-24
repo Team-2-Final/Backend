@@ -327,12 +327,6 @@ VALUES ('Cheonan Center 4', 'Cheonan', 'Underground Production Facility');
 -- 생육 단계 관리(GROWTH BATCH) 추가
 INSERT INTO growth_batch (field_id, crop_type, description)
 VALUES (1, 'tomato', 'first batch');
-INSERT INTO growth_batch (field_id, crop_type, description)
-VALUES (2, 'tomato', 'second batch');
-INSERT INTO growth_batch (field_id, crop_type, description)
-VALUES (3, 'tomato', 'third batch');
-INSERT INTO growth_batch (field_id, crop_type, description)
-VALUES (4, 'tomato', 'fourth batch');
 
 PROMPT === DB INIT DONE ===
 
