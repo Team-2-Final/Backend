@@ -309,6 +309,7 @@ select * from ACTION_LOG;
 
 
 
+
 -- image_data (이미지 정보) 테이블
 CREATE TABLE image_data (
     id NUMBER PRIMARY KEY,

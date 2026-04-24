@@ -5,6 +5,7 @@ from app.schemas.control.control import DeviceModeRequest, DeviceTargetRequest
 from app.services.action_log_service import ActionLogService
 from app.db.oracle import SessionLocal
 from app.models.oracle.action_log import ActionLog
+from app.core.state import device_emergency_map
 
 # 🔹 상태 저장 (메모리)
 from app.core.state import (
@@ -33,6 +34,9 @@ def set_device_mode(batch_id: int, req: DeviceModeRequest):
     if req.mode == "auto":
         device_state_map[batch_id][req.device]["target"] = None
 
+        if batch_id in device_emergency_map:
+            device_emergency_map[batch_id][req.device] = False
+
     return {"device": req.device, "mode": req.mode}
 
 
@@ -52,35 +56,6 @@ def set_device_target(batch_id: int, req: DeviceTargetRequest):
 
     return {"device": req.device, "target": req.value}
 
-# =========================
-# 📋 현재 목표 수치 설정 조회
-# =========================
-@router.get("/device-state/{batch_id}")
-def get_device_state(batch_id: int):
-    state = device_state_map.get(batch_id, {})
-
-    default_devices = {
-        "heater": {"mode": "auto", "target": 22.0},
-        "humidifier": {"mode": "auto", "target": 65},
-        "light": {"mode": "auto", "target": 80},
-        "irrigation": {"mode": "auto", "target": 2.5},
-        "fertigation": {"mode": "auto", "target": 1.2},
-        "co2_gen": {"mode": "manual", "target": 800},
-    }
-
-    result = {}
-    for device, default_value in default_devices.items():
-        current = state.get(device, {})
-        result[device] = {
-            "mode": current.get("mode", default_value["mode"]),
-            "target": current.get("target", default_value["target"]),
-        }
-
-    return {
-        "batch_id": batch_id,
-        "devices": result
-    }
-
 
 # =========================
 # ⚙️ 현재 action 조회 (시뮬용)
@@ -93,21 +68,23 @@ def get_action(batch_id: int):
     if not data:
         return {"action": {}, "log_id": None}
 
+    log_ids = data.get("log_ids", [])
+
+    # 🔥 하나씩 pop (FIFO)
+    next_log_id = log_ids.pop(0) if log_ids else None
+
+    # 상태 갱신
+    data["log_ids"] = log_ids
+    latest_action_map[batch_id] = data
+
     return {
         "action": data.get("action", {}),
-        "log_id": data.get("log_id")
+        "log_id": next_log_id
     }
 
 # ack : 명령이 시뮬에 제대로 받아들여져서 작동했나 확인하고 update
 @router.post("/ack/{batch_id}")
 def ack_action(batch_id: int, data: dict):
-    """
-    simulator가 실행 결과 전달
-    data:
-      - log_id
-      - status (applied / failed)
-      - message (optional)
-    """
 
     log_id = data.get("log_id")
     status = data.get("status")
@@ -124,68 +101,22 @@ def ack_action(batch_id: int, data: dict):
 
     return {"status": "ok"}
 
-# =========================
-# 📝 운영 기록 조회
-# =========================
-@router.get("/logs/{batch_id}")
-def get_control_logs(batch_id: int):
-    db = SessionLocal()
-    try:
-        logs = (
-            db.query(ActionLog)
-            .filter(ActionLog.batch_id == batch_id)
-            .order_by(ActionLog.id.desc())
-            .limit(20)
-            .all()
-        )
-
-        return [
-            {
-                "id": log.id,
-                "device": log.action_type,
-                "mode": log.action_mode,
-                "status": log.status,
-                "message": log.message,
-            }
-            for log in logs
-        ]
-    finally:
-        db.close()
 
 
 # =========================
 # 🚨 긴급 정지
 # =========================
-@router.post("/device/stop/{batch_id}")
-def stop_device(batch_id: int, data: dict):
-    device = data.get("device")
+@router.post("/emergency/{batch_id}/{device}")
+def set_emergency(batch_id: int, device: str, is_stop: bool):
 
-    if not device:
-        return {"status": "fail", "message": "device missing"}
+    # batch 없으면 초기화
+    if batch_id not in device_emergency_map:
+        device_emergency_map[batch_id] = {}
 
-    if batch_id not in device_state_map:
-        device_state_map[batch_id] = {}
-
-    if device not in device_state_map[batch_id]:
-        device_state_map[batch_id][device] = {}
-
-    device_state_map[batch_id][device]["mode"] = "manual"
-    device_state_map[batch_id][device]["target"] = 0
-
-    log_id = action_log_service.save(
-        batch_id=batch_id,
-        action_type=device,
-        action_mode="manual",
-        trigger_value=None,
-        threshold=None,
-        status="issued",
-        message=f"{device} emergency stop"
-    )
+    device_emergency_map[batch_id][device] = is_stop
 
     return {
-        "status": "ok",
+        "batch_id": batch_id,
         "device": device,
-        "mode": "manual",
-        "target": 0,
-        "log_id": log_id
+        "emergency": is_stop
     }

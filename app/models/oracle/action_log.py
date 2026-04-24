@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, ForeignKey, String, DateTime, Float
+from sqlalchemy import Column, Integer, ForeignKey, String, DateTime, Float, text
 from app.db.oracle import Base
 
 
@@ -10,11 +10,18 @@ class ActionLog(Base):
 
     action_type = Column(String(50))     # water / nutrient
     action_mode = Column(String(20))     # auto / manual
-
+    is_on = Column(String(10))
+    metric = Column(String(30))
+    
     trigger_value = Column(Float)
     threshold = Column(Float)
 
     status = Column(String(20))          # success / fail
     message = Column(String(255))
 
-    recorded_at = Column(DateTime)
+    recorded_at = Column(
+        DateTime,
+        nullable=False,
+        server_default=text("SYSTIMESTAMP")
+        
+    )

@@ -4,3 +4,4 @@ latest_action_map = {}
 mode_map = {}
 manual_target_map = {}
 device_state_map = {}
+device_emergency_map = {}
