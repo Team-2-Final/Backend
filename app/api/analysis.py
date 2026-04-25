@@ -39,7 +39,7 @@ def get_dashboard_api(batch_id: int):
 @router.get("/stats/{batch_id}")
 def get_stats(
     batch_id: int,
-    range_type: str = "hour",   # hour | day | week
+    range_type: str = "day",   # hour | day | week
     db: Session = Depends(get_oracle_db)
 ):
     print("🔥 stats API 들어옴", batch_id, range_type)
@@ -82,6 +82,33 @@ def get_stats(
         FROM environment_data
         WHERE batch_id = :batch_id
           AND recorded_at >= SYSDATE - 7
+        GROUP BY TRUNC(recorded_at)
+        ORDER BY label
+        """
+
+    elif range_type == "month":
+        query = """
+        SELECT
+            TO_CHAR(TRUNC(recorded_at), 'YYYY-MM-DD') AS label,
+            AVG(temperature) AS temperature,
+            AVG(humidity) AS humidity,
+            AVG(co2) AS co2
+        FROM environment_data
+        WHERE batch_id = :batch_id
+          AND recorded_at >= SYSDATE - 30
+        GROUP BY TRUNC(recorded_at)
+        ORDER BY label
+        """
+
+    elif range_type == "all":
+        query = """
+        SELECT
+            TO_CHAR(TRUNC(recorded_at), 'YYYY-MM-DD') AS label,
+            AVG(temperature) AS temperature,
+            AVG(humidity) AS humidity,
+            AVG(co2) AS co2
+        FROM environment_data
+        WHERE batch_id = :batch_id
         GROUP BY TRUNC(recorded_at)
         ORDER BY label
         """
