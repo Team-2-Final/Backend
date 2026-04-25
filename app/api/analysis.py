@@ -60,8 +60,17 @@ def get_stats(
 
     elif range_type == "day":
         query = """
+    SELECT
+        e.label,
+        e.temperature,
+        e.humidity,
+        e.co2,
+        g.plant_height,
+        90 AS standard_height
+    FROM (
         SELECT
             TO_CHAR(recorded_at, 'HH24') AS label,
+            TO_CHAR(recorded_at, 'HH24') AS record_hour,
             AVG(temperature) AS temperature,
             AVG(humidity) AS humidity,
             AVG(co2) AS co2
@@ -69,13 +78,33 @@ def get_stats(
         WHERE batch_id = :batch_id
           AND recorded_at >= TRUNC(SYSDATE)
         GROUP BY TO_CHAR(recorded_at, 'HH24')
-        ORDER BY label
-        """
+    ) e
+    LEFT JOIN (
+        SELECT
+            TO_CHAR(recorded_at, 'HH24') AS record_hour,
+            AVG(plant_height) AS plant_height
+        FROM plant_growth
+        WHERE batch_id = :batch_id
+          AND recorded_at >= TRUNC(SYSDATE)
+        GROUP BY TO_CHAR(recorded_at, 'HH24')
+    ) g
+    ON e.record_hour = g.record_hour
+    ORDER BY e.label
+    """
 
     elif range_type == "week":
         query = """
         SELECT
+        e.label,
+        e.temperature,
+        e.humidity,
+        e.co2,
+        g.plant_height,
+        90 AS standard_height
+        FROM (
+        SELECT
             TO_CHAR(TRUNC(recorded_at), 'YYYY-MM-DD') AS label,
+            TRUNC(recorded_at) AS record_date,
             AVG(temperature) AS temperature,
             AVG(humidity) AS humidity,
             AVG(co2) AS co2
@@ -83,13 +112,33 @@ def get_stats(
         WHERE batch_id = :batch_id
           AND recorded_at >= SYSDATE - 7
         GROUP BY TRUNC(recorded_at)
-        ORDER BY label
-        """
+    ) e
+    LEFT JOIN (
+        SELECT
+            TRUNC(recorded_at) AS record_date,
+            AVG(plant_height) AS plant_height
+        FROM plant_growth
+        WHERE batch_id = :batch_id
+          AND recorded_at >= SYSDATE - 7
+        GROUP BY TRUNC(recorded_at)
+    ) g
+    ON e.record_date = g.record_date
+    ORDER BY e.label
+    """
 
     elif range_type == "month":
-        query = """
+     query = """
+    SELECT
+        e.label,
+        e.temperature,
+        e.humidity,
+        e.co2,
+        g.plant_height,
+        90 AS standard_height
+    FROM (
         SELECT
             TO_CHAR(TRUNC(recorded_at), 'YYYY-MM-DD') AS label,
+            TRUNC(recorded_at) AS record_date,
             AVG(temperature) AS temperature,
             AVG(humidity) AS humidity,
             AVG(co2) AS co2
@@ -97,21 +146,51 @@ def get_stats(
         WHERE batch_id = :batch_id
           AND recorded_at >= SYSDATE - 30
         GROUP BY TRUNC(recorded_at)
-        ORDER BY label
-        """
+    ) e
+    LEFT JOIN (
+        SELECT
+            TRUNC(recorded_at) AS record_date,
+            AVG(plant_height) AS plant_height
+        FROM plant_growth
+        WHERE batch_id = :batch_id
+          AND recorded_at >= SYSDATE - 30
+        GROUP BY TRUNC(recorded_at)
+    ) g
+    ON e.record_date = g.record_date
+    ORDER BY e.label
+    """
 
     elif range_type == "all":
         query = """
+    SELECT
+        e.label,
+        e.temperature,
+        e.humidity,
+        e.co2,
+        g.plant_height,
+        90 AS standard_height
+    FROM (
         SELECT
             TO_CHAR(TRUNC(recorded_at), 'YYYY-MM-DD') AS label,
+            TRUNC(recorded_at) AS record_date,
             AVG(temperature) AS temperature,
             AVG(humidity) AS humidity,
             AVG(co2) AS co2
         FROM environment_data
         WHERE batch_id = :batch_id
         GROUP BY TRUNC(recorded_at)
-        ORDER BY label
-        """
+    ) e
+    LEFT JOIN (
+        SELECT
+            TRUNC(recorded_at) AS record_date,
+            AVG(plant_height) AS plant_height
+        FROM plant_growth
+        WHERE batch_id = :batch_id
+        GROUP BY TRUNC(recorded_at)
+    ) g
+    ON e.record_date = g.record_date
+    ORDER BY e.label
+    """
 
     else:
         return {"error": "invalid range_type"}
