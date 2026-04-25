@@ -160,10 +160,15 @@ class DataService:
                 and event["severity"] >= 3
                 ):
                  
-                short_msg, detail_msg = self._build_messages(event)
+                short_msg, detail_msg = self._build_messages(event, batch_id)
                 
                 # 텔레그램용 메시지 전송
-                self.alert_service.send(detail_msg)
+                fruit_image = image_paths.get("fruit")
+
+                self.alert_service.send(
+                    message=detail_msg,
+                    image_path=fruit_image
+                )
 
                 db.add(ActionLog(
                     batch_id=batch_id,
@@ -247,9 +252,12 @@ class DataService:
                 and event["confidence"] > 0.8
                 and event.get("severity", 0) >= 3
             ):
-                short_msg, detail_msg = self._build_messages(event)
+                short_msg, detail_msg = self._build_messages(event, batch_id)
 
-                self.alert_service.send(detail_msg)
+                self.alert_service.send(
+                    message=detail_msg,
+                    image_path=image_path
+                )
 
                 db.add(ActionLog(
                     batch_id=batch_id,
@@ -325,9 +333,12 @@ class DataService:
                 and event["confidence"] > 0.8
                 and event.get("severity", 0) >= 3
             ):
-                short_msg, detail_msg = self._build_messages(event)
+                short_msg, detail_msg = self._build_messages(event, batch_id)
 
-                self.alert_service.send(detail_msg)
+                self.alert_service.send(
+                    message=detail_msg,
+                    image_path=image_path
+                )
 
                 db.add(ActionLog(
                     batch_id=batch_id,
@@ -384,31 +395,31 @@ class DataService:
 
 
     # ai 검사 결과에 따른 메시지 생성
-    def _build_messages(self, event):
+    def _build_messages(self, event, batch_id: int):
         if event["result_type"] == "disease":
             short = f"[disease] {event['result_value']}"
-            detail = f"""
-    🚨 병해 감지
+            detail = f"""🚨 병해 감지
+    배치: {batch_id}
     종류: {event['result_value']}
     심각도: {event['severity']}
     신뢰도: {event['confidence']}
     """
             return short, detail
-
+    
         elif event["result_type"] == "harvest":
             short = f"[harvest] 수확 시기 도달"
-            detail = f"""
-    🌾 수확 시기 도달
+            detail = f"""🌾 수확 시기 도달
+    배치: {batch_id}
     신뢰도: {event['confidence']}
     """
             return short, detail
-
+    
         elif event["result_type"] == "flowering":
             short = f"[flowering] 개화 감지"
-            detail = f"""
-    🌸 개화 감지
+            detail = f"""🌸 개화 감지
+    배치: {batch_id}
     신뢰도: {event['confidence']}
     """
             return short, detail
-
+    
         return None, None

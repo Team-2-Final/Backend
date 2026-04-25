@@ -1,11 +1,11 @@
 from app.core.telegram import TelegramBot
 
+
 class AlertService:
     def __init__(self):
         self.telegram = TelegramBot()
 
-    def send(self, message: str):
-        print("[ALERT]", message)
+    def send(self, message: str = None, image_path: str = None):
+        print("[ALERT]", message, image_path)
 
-        # 실제 연결 시 사용
-        self.telegram.send_message(message)
+        self.telegram.send(message=message, image_path=image_path)
