@@ -246,7 +246,18 @@ class DashboardService:
             ai = self._get_latest_ai_row(db, batch_id)
             issue_count = self._get_recent_issue_count(db, batch_id)
 
+            target_height = 90.0
+
+            growth_progress = 0
+
+            if growth and growth.plant_height:
+                growth_progress = round(
+                min((growth.plant_height / target_height) * 100, 100),
+                1
+            )
+
             env_score = 0
+            
             if env:
                 env_score += self._score_range(env.temperature, 20, 26, 15)
                 env_score += self._score_range(env.humidity, 55, 75, 10)
@@ -280,6 +291,7 @@ class DashboardService:
 
             raw_score = env_score + growth_score + ai_adjust - issue_penalty
             score = int(self._clamp(raw_score, 0, 100))
+            
 
             delta_percent = 0
             if env and prev_env:
@@ -318,20 +330,24 @@ class DashboardService:
                     phase = "영양 생장기"
                 else:
                     phase = "개화기/생식기"
+            
 
             return {
-                "score": score,
-                "phase": phase,
-                "summary": summary,
-                "delta_percent": delta_percent,
-                "env_score": round(env_score, 1),
-                "growth_score": round(growth_score, 1),
-                "ai_adjust": ai_adjust,
-                "issue_penalty": issue_penalty,
-                "updated_at": self._fmt_datetime(env.recorded_at if env else None),
-            }
+    "score": score,
+    "phase": phase,
+    "summary": summary,
+    "delta_percent": delta_percent,
+    "env_score": round(env_score, 1),
+    "growth_score": round(growth_score, 1),
+    "ai_adjust": ai_adjust,
+    "issue_penalty": issue_penalty,
+    "growth_progress": growth_progress,
+    "target_height": target_height,
+    "updated_at": self._fmt_datetime(env.recorded_at if env else None),
+}
         finally:
             db.close()
+            
 
     def get_dashboard(self, batch_id: int):
         return {
@@ -379,3 +395,4 @@ class DashboardService:
             }
         finally:
             db.close()
+            
