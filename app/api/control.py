@@ -44,7 +44,9 @@ def set_device_mode(batch_id: int, req: DeviceModeRequest):
 # 🎛 수동 제어 설정
 # =========================
 @router.post("/device/target/{batch_id}")
+
 def set_device_target(batch_id: int, req: DeviceTargetRequest):
+    
 
     if batch_id not in device_state_map:
         device_state_map[batch_id] = {}
@@ -53,8 +55,10 @@ def set_device_target(batch_id: int, req: DeviceTargetRequest):
         device_state_map[batch_id][req.device] = {}
 
     device_state_map[batch_id][req.device]["target"] = req.value
+    
 
     return {"device": req.device, "target": req.value}
+
 
 
 # =========================

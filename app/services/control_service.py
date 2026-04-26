@@ -298,9 +298,14 @@ def decide_action(env: dict, batch_id: int):
     print("\n[REASON]")
     print(reason)
     print("========================================================\n")
+    print("🔥 자동 제어 판단")
+    print("env:", env)
+    print("action:", action)
+    print("reason:", reason)
     # =========================
     # 5. STATE 업데이트
     # =========================
     last_state[batch_id] = action.copy()
+    
 
     return action, reason
