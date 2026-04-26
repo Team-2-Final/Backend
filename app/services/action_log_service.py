@@ -67,3 +67,83 @@ class ActionLogService:
 
         finally:
             db.close()
+
+
+
+    EVENT_TYPES = {"disease", "harvest", "flowering"}
+
+    # 디바이스 로그만 조회
+    def get_device_logs(self, batch_id: int, limit: int = 6):
+        db = SessionLocal()
+        try:
+            logs = (
+                db.query(ActionLog)
+                .filter(ActionLog.batch_id == batch_id)
+                .filter(~ActionLog.action_type.in_(self.EVENT_TYPES))  # 🔥 이벤트 제외
+                .order_by(ActionLog.recorded_at.desc())
+                .limit(limit)
+                .all()
+            )
+
+            return [
+                {
+                    "id": log.id,
+                    "time": self._fmt_time(log.recorded_at),
+                    "recorded_at": self._fmt_datetime(log.recorded_at),
+                    "device": log.action_type,
+                    "detail": log.message,
+                    "status": log.status,
+                    "mode": log.action_mode,
+                }
+                for log in logs
+            ]
+        finally:
+            db.close()
+
+    # 이벤트 로그만 조회
+    def get_event_logs(self, batch_id: int, limit: int = 6):
+        db = SessionLocal()
+        try:
+            logs = (
+                db.query(ActionLog)
+                .filter(ActionLog.batch_id == batch_id)
+                .filter(ActionLog.action_type.in_(self.EVENT_TYPES))  # 🔥 이벤트만
+                .order_by(ActionLog.recorded_at.desc())
+                .limit(limit)
+                .all()
+            )
+
+            return [
+                {
+                    "id": log.id,
+                    "time": self._fmt_time(log.recorded_at),
+                    "recorded_at": self._fmt_datetime(log.recorded_at),
+                    "type": log.action_type,
+                    "detail": log.message,
+                }
+                for log in logs
+            ]
+        finally:
+            db.close()    
+
+    def _fmt_datetime(self, dt):
+        if not dt:
+            return None
+        return dt.strftime("%Y-%m-%d %H:%M:%S")
+    
+    
+    def _fmt_time(self, dt):
+        if not dt:
+            return None
+    
+        from datetime import datetime
+    
+        now = datetime.now()
+    
+        try:
+            if dt.date() == now.date():
+                return dt.strftime("%H:%M")
+        except Exception:
+            return dt.strftime("%Y-%m-%d %H:%M:%S")
+    
+        return dt.strftime("%m-%d %H:%M")    

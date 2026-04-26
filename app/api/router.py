@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api import analysis, environment, auth, control, dashboard, websocket
+from app.api import analysis, environment, auth, control, dashboard, websocket, logget
 
 router = APIRouter()
 
@@ -34,3 +34,4 @@ router.include_router(
 # 라우터 -> 메인 라우터로 등록하는 역할
 router.include_router(dashboard.router)
 router.include_router(websocket.router)
+router.include_router(logget.router)
