@@ -109,14 +109,99 @@ def ack_action(batch_id: int, data: dict):
 @router.post("/emergency/{batch_id}/{device}")
 def set_emergency(batch_id: int, device: str, is_stop: bool):
 
-    # batch 없으면 초기화
     if batch_id not in device_emergency_map:
         device_emergency_map[batch_id] = {}
 
+    if batch_id not in device_state_map:
+        device_state_map[batch_id] = {}
+
+    if device not in device_state_map[batch_id]:
+        device_state_map[batch_id][device] = {}
+
     device_emergency_map[batch_id][device] = is_stop
+
+    if is_stop:
+        device_state_map[batch_id][device]["mode"] = "emergency"
+        device_state_map[batch_id][device]["target"] = None
+    else:
+        device_state_map[batch_id][device]["mode"] = "auto"
+        device_state_map[batch_id][device]["target"] = None
+
+    action_log_service.save(
+        batch_id=batch_id,
+        action_type=device,
+        action_mode="emergency",
+        is_on="off",
+        metric=None,
+        trigger_value=None,
+        threshold=None,
+        status="triggered",
+        message="관리자 긴급 정지 실행",
+    )
 
     return {
         "batch_id": batch_id,
         "device": device,
         "emergency": is_stop
     }
+
+@router.get("/device-state/{batch_id}")
+def get_device_state(batch_id: int):
+    return {
+        "devices": device_state_map.get(batch_id, {}),
+        "emergency": device_emergency_map.get(batch_id, {})
+    }
+
+@router.get("/logs/{batch_id}")
+def get_control_logs(batch_id: int):
+    db = SessionLocal()
+    try:
+        logs = (
+            db.query(ActionLog)
+            .filter(ActionLog.batch_id == batch_id)
+            .order_by(ActionLog.recorded_at.desc())
+            .limit(6)
+            .all()
+        )
+
+
+
+        return [
+    {
+        "id": log.id,
+        "time": log.recorded_at.strftime("%H:%M") if log.recorded_at else "-",
+        "device": log.action_type,
+        "mode": log.action_mode,
+        "is_on": log.is_on,
+        "metric": log.metric,
+        "value": log.trigger_value,
+        "threshold": log.threshold,
+        "status": log.status,
+        "message": log.message or make_device_message(log),
+    }
+    for log in logs
+]
+    finally:
+        db.close()
+    
+def make_device_message(log):
+    name = {
+        "co2_gen": "CO2 농도",
+        "light": "광량",
+        "fertigation": "양액 농도",
+        "irrigation": "토양 수분",
+        "fan": "CO2 농도",
+        "heater": "온도",
+        "cooler": "온도",
+        "humidifier": "습도",
+    }.get(log.action_type, log.action_type)
+
+    is_on = str(log.is_on or "").lower()
+
+    if is_on == "on":
+        return f"{name} 조절을 위해 장치 가동"
+
+    if is_on == "off":
+        return f"{name} 안정화로 장치 정지"
+
+    return f"{name} 제어 상태 변경"
