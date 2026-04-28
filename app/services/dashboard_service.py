@@ -198,7 +198,7 @@ class DashboardService:
         finally:
             db.close()
 
-    def get_ai_reports(self, batch_id: int, limit: int = 2):
+    def get_ai_reports(self, batch_id: int, limit: int = 20):
         db = SessionLocal()
         try:
             rows = (
