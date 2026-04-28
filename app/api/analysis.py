@@ -61,137 +61,89 @@ def get_stats(
     elif range_type == "day":
         query = """
     SELECT
-        e.label,
-        e.temperature,
-        e.humidity,
-        e.co2,
-        g.plant_height,
+        TO_CHAR(TRUNC(g.recorded_at), 'YYYY-MM-DD') AS label,
+        AVG(e.temperature) AS temperature,
+        AVG(e.humidity) AS humidity,
+        AVG(e.co2) AS co2,
+        AVG(g.plant_height) AS plant_height,
         90 AS standard_height
-    FROM (
-        SELECT
-            TO_CHAR(recorded_at, 'HH24') AS label,
-            TO_CHAR(recorded_at, 'HH24') AS record_hour,
-            AVG(temperature) AS temperature,
-            AVG(humidity) AS humidity,
-            AVG(co2) AS co2
-        FROM environment_data
-        WHERE batch_id = :batch_id
-          AND recorded_at >= TRUNC(SYSDATE)
-        GROUP BY TO_CHAR(recorded_at, 'HH24')
-    ) e
-    LEFT JOIN (
-        SELECT
-            TO_CHAR(recorded_at, 'HH24') AS record_hour,
-            AVG(plant_height) AS plant_height
-        FROM plant_growth
-        WHERE batch_id = :batch_id
-          AND recorded_at >= TRUNC(SYSDATE)
-        GROUP BY TO_CHAR(recorded_at, 'HH24')
-    ) g
-    ON e.record_hour = g.record_hour
-    ORDER BY e.label
+    FROM plant_growth g
+    LEFT JOIN environment_data e
+      ON e.batch_id = g.batch_id
+     AND TRUNC(e.recorded_at) = TRUNC(g.recorded_at)
+    WHERE g.batch_id = :batch_id
+      AND g.recorded_at >= (
+          SELECT MAX(recorded_at) - 1
+          FROM plant_growth
+          WHERE batch_id = :batch_id
+      )
+    GROUP BY TRUNC(g.recorded_at)
+    ORDER BY TRUNC(g.recorded_at)
     """
 
     elif range_type == "week":
         query = """
-        SELECT
-        e.label,
-        e.temperature,
-        e.humidity,
-        e.co2,
-        g.plant_height,
+    SELECT
+        TO_CHAR(TRUNC(g.recorded_at), 'YYYY-MM-DD') AS label,
+        AVG(e.temperature) AS temperature,
+        AVG(e.humidity) AS humidity,
+        AVG(e.co2) AS co2,
+        AVG(g.plant_height) AS plant_height,
         90 AS standard_height
-        FROM (
-        SELECT
-            TO_CHAR(TRUNC(recorded_at), 'YYYY-MM-DD') AS label,
-            TRUNC(recorded_at) AS record_date,
-            AVG(temperature) AS temperature,
-            AVG(humidity) AS humidity,
-            AVG(co2) AS co2
-        FROM environment_data
-        WHERE batch_id = :batch_id
-          AND recorded_at >= SYSDATE - 7
-        GROUP BY TRUNC(recorded_at)
-    ) e
-    LEFT JOIN (
-        SELECT
-            TRUNC(recorded_at) AS record_date,
-            AVG(plant_height) AS plant_height
-        FROM plant_growth
-        WHERE batch_id = :batch_id
-          AND recorded_at >= SYSDATE - 7
-        GROUP BY TRUNC(recorded_at)
-    ) g
-    ON e.record_date = g.record_date
-    ORDER BY e.label
+    FROM plant_growth g
+    LEFT JOIN environment_data e
+      ON e.batch_id = g.batch_id
+     AND TRUNC(e.recorded_at) = TRUNC(g.recorded_at)
+    WHERE g.batch_id = :batch_id
+      AND g.recorded_at >= (
+          SELECT MAX(recorded_at) - 7
+          FROM plant_growth
+          WHERE batch_id = :batch_id
+      )
+    GROUP BY TRUNC(g.recorded_at)
+    ORDER BY TRUNC(g.recorded_at)
     """
 
     elif range_type == "month":
      query = """
     SELECT
-        e.label,
-        e.temperature,
-        e.humidity,
-        e.co2,
-        g.plant_height,
+        TO_CHAR(TRUNC(g.recorded_at), 'YYYY-MM-DD') AS label,
+        AVG(e.temperature) AS temperature,
+        AVG(e.humidity) AS humidity,
+        AVG(e.co2) AS co2,
+        AVG(g.plant_height) AS plant_height,
         90 AS standard_height
-    FROM (
-        SELECT
-            TO_CHAR(TRUNC(recorded_at), 'YYYY-MM-DD') AS label,
-            TRUNC(recorded_at) AS record_date,
-            AVG(temperature) AS temperature,
-            AVG(humidity) AS humidity,
-            AVG(co2) AS co2
-        FROM environment_data
-        WHERE batch_id = :batch_id
-          AND recorded_at >= SYSDATE - 30
-        GROUP BY TRUNC(recorded_at)
-    ) e
-    LEFT JOIN (
-        SELECT
-            TRUNC(recorded_at) AS record_date,
-            AVG(plant_height) AS plant_height
-        FROM plant_growth
-        WHERE batch_id = :batch_id
-          AND recorded_at >= SYSDATE - 30
-        GROUP BY TRUNC(recorded_at)
-    ) g
-    ON e.record_date = g.record_date
-    ORDER BY e.label
+    FROM plant_growth g
+    LEFT JOIN environment_data e
+      ON e.batch_id = g.batch_id
+     AND TRUNC(e.recorded_at) = TRUNC(g.recorded_at)
+    WHERE g.batch_id = :batch_id
+      AND g.recorded_at >= (
+          SELECT MAX(recorded_at) - 30
+          FROM plant_growth
+          WHERE batch_id = :batch_id
+      )
+    GROUP BY TRUNC(g.recorded_at)
+    ORDER BY TRUNC(g.recorded_at)
     """
 
     elif range_type == "all":
         query = """
     SELECT
-        e.label,
-        e.temperature,
-        e.humidity,
-        e.co2,
-        g.plant_height,
+        TO_CHAR(TRUNC(g.recorded_at), 'YYYY-MM-DD') AS label,
+        AVG(e.temperature) AS temperature,
+        AVG(e.humidity) AS humidity,
+        AVG(e.co2) AS co2,
+        AVG(g.plant_height) AS plant_height,
         90 AS standard_height
-    FROM (
-        SELECT
-            TO_CHAR(TRUNC(recorded_at), 'YYYY-MM-DD') AS label,
-            TRUNC(recorded_at) AS record_date,
-            AVG(temperature) AS temperature,
-            AVG(humidity) AS humidity,
-            AVG(co2) AS co2
-        FROM environment_data
-        WHERE batch_id = :batch_id
-        GROUP BY TRUNC(recorded_at)
-    ) e
-    LEFT JOIN (
-        SELECT
-            TRUNC(recorded_at) AS record_date,
-            AVG(plant_height) AS plant_height
-        FROM plant_growth
-        WHERE batch_id = :batch_id
-        GROUP BY TRUNC(recorded_at)
-    ) g
-    ON e.record_date = g.record_date
-    ORDER BY e.label
+    FROM plant_growth g
+    LEFT JOIN environment_data e
+      ON e.batch_id = g.batch_id
+     AND TRUNC(e.recorded_at) = TRUNC(g.recorded_at)
+    WHERE g.batch_id = :batch_id
+    GROUP BY TRUNC(g.recorded_at)
+    ORDER BY TRUNC(g.recorded_at)
     """
-
     else:
         return {"error": "invalid range_type"}
 

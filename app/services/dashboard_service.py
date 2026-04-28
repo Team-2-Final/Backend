@@ -55,11 +55,11 @@ class DashboardService:
 
     def _get_latest_growth_row(self, db, batch_id: int):
         return (
-            db.query(PlantGrowth)
-            .filter(PlantGrowth.batch_id == batch_id)
-            .order_by(PlantGrowth.id.desc())
-            .first()
-        )
+         db.query(PlantGrowth)
+        .filter(PlantGrowth.batch_id == batch_id)
+        .order_by(PlantGrowth.recorded_at.desc(), PlantGrowth.id.desc())
+        .first()
+    )
 
     def _get_latest_ai_row(self, db, batch_id: int):
         return (
@@ -374,11 +374,14 @@ class DashboardService:
             def get_past_height(days_ago):
                 target_date = now - timedelta(days=days_ago)
                 past_record = (
-                    db.query(PlantGrowth)
-                    .filter(PlantGrowth.batch_id == batch_id, PlantGrowth.recorded_at <= target_date)
-                    .order_by(PlantGrowth.recorded_at.desc())
-                    .first()
-                )
+    db.query(PlantGrowth)
+    .filter(
+        PlantGrowth.batch_id == batch_id,
+        PlantGrowth.recorded_at <= target_date,
+    )
+    .order_by(PlantGrowth.recorded_at.desc(), PlantGrowth.id.desc())
+    .first()
+)
                 # 과거 기록이 없으면 그냥 현재 키와 같다고 처리(성장량 0)
                 return past_record.plant_height if past_record and past_record.plant_height else current_height
 
