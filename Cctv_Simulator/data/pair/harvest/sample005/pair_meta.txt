@@ -1,0 +1,5 @@
+join_key=V001_tom1_39_006_20210930_49122255
+plant_height=35.15
+number_of_leaves=15.0
+leaf_length=
+leaf_width=
