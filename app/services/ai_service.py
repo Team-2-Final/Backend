@@ -97,3 +97,17 @@ class AIService:
         "http://127.0.0.1:8002/infer/fruit",
         image_path
     )
+
+    # ==========================================
+    # 🌸 새로 추가하는 토마토 꽃 분석 통신 메서드
+    # ==========================================
+    def analyze_flower(self, image_path: str):
+        """
+        메인 백엔드가 8001번 포트(우리가 만든 AI 서버)로 사진을 들고 전화를 거는 곳입니다.
+        """
+        return self.infer_single(
+            # 주의: 꽃 분석은 8002번(병해충)이 아니라 새로 만든 8003번 포트로 보냅니다.
+            # 우리가 FastAPI 서버에서 만든 엔드포인트 이름이 '/infer/flower' 였으므로 주소를 맞춰줍니다.
+            "http://127.0.0.1:8002/infer/flower", 
+            image_path
+        )

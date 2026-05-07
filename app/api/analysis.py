@@ -230,3 +230,22 @@ async def infer_fruit(file: UploadFile = File(...)):
     await data_service.infer_fruit(batch_id, file)
     print("fruit 라우터까지 접근")
     return {"status": "ok"}
+
+# ==========================================
+    # 🌸 새로 추가하는 프론트엔드 접속용 API 엔드포인트
+    # ==========================================
+    # React에서 이 주소(POST /analysis/flower/123)로 사진을 보내면 이 함수가 실행됩니다.
+@router.post("/flower/{batch_id}")
+async def analyze_flower_api(batch_id: int, file: UploadFile = File(...)):
+        """
+        꽃 개화 분석을 위한 API 진입점입니다. 
+        비즈니스 로직 처리를 위해 DataService의 infer_flower로 모든 걸 위임합니다.
+        """
+
+        batch_id = 1
+        print("flower 라우터까지 접근")
+
+        # data_service 객체의 infer_flower 메서드를 호출하고 그 결과를 프론트로 리턴합니다.
+        result = await data_service.infer_flower(batch_id, file)
+        
+        return result
